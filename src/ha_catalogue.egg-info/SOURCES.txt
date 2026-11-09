@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/ha_catalogue/__init__.py
+src/ha_catalogue/encoding.py
+src/ha_catalogue.egg-info/PKG-INFO
+src/ha_catalogue.egg-info/SOURCES.txt
+src/ha_catalogue.egg-info/dependency_links.txt
+src/ha_catalogue.egg-info/requires.txt
+src/ha_catalogue.egg-info/top_level.txt
+tests/test_encoding.py

@@ -1,0 +1,5 @@
+bijoy2unicode==0.1.1
+
+[dev]
+pytest>=8
+ruff>=0.6
