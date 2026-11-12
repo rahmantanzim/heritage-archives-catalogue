@@ -82,11 +82,12 @@ pytest tests/test_encoding.py -v # one file
 ruff check . && ruff format .    # lint and format
 python -m ha_catalogue.encoding "Kv‡e\`yj Bmjvg"   # try the converter
 
-docker compose up -d                 # PostgreSQL (needs .env, see .env.example)
+docker compose up                    # everything: DB + API loaded with DATA_DIR
+docker compose up -d db              # PostgreSQL only (needs .env, see .env.example)
 alembic upgrade head                 # create/upgrade tables
 python -m ha_catalogue.load data/raw # load the catalogue
 uvicorn ha_catalogue.api:create_app --factory --reload   # API at :8000/docs
-TEST_DATABASE_URL=postgresql+psycopg://ha:PASSWORD@127.0.0.1:5432/ha_catalogue_test pytest
+TEST_DATABASE_URL=postgresql+psycopg://ha:PASSWORD@127.0.0.1:5433/ha_catalogue_test pytest
 ```
 
 Database tests only run when TEST_DATABASE_URL is set, and refuse any
@@ -123,8 +124,11 @@ src/ha_catalogue/
   api.py              # FastAPI app factory: create_app()
 migrations/           # Alembic; one file per schema change, never edit published ones
 tests/            # pytest tests, one file per module
-data/raw/         # original catalogue files, never edited by code
-data/processed/   # pipeline output (git-ignored once added)
+data/raw/         # the full catalogue: NOT in git (git-ignored), local only
+data/sample/      # ~100 real rows per file, in git; built by scripts/make_sample.py
+scripts/          # make_sample.py: rebuild the sample from data/raw
+docker/           # entrypoint.sh: migrate, load DATA_DIR, start the API
+Dockerfile        # the API image used by `docker compose up`
 ```
 
 ## Bijoy conversion: rules already learned
@@ -167,7 +171,13 @@ converter also moved "w" (ি) after the next letter, so we move it back
 - A poster row with no number but some text continues the poster above.
 - `3476-3500 duvKv` (ফাঁকা) means numbers kept blank on purpose.
 
-## Data sources (in `data/raw/`)
+## Data sources (in `data/raw/`, sample in `data/sample/`)
+
+The full catalogue is kept out of git (decision: the archive's data isn't
+published in full; visitors use the sample). Tests and CI use only
+`data/sample/` and small inline CSVs. `tests/test_sample_data.py` checks that
+the sample still shows every fix and issue kind; rebuild it with
+`python scripts/make_sample.py data/raw data/sample` after reader changes.
 
 All sources are Unicode CSV exports of the archive's catalogues. The file ->
 reader mapping lives in `ingest.SOURCES`.

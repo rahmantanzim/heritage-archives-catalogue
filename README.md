@@ -64,6 +64,7 @@ file and row number.
 - [x] PostgreSQL storage with Alembic migrations
 - [x] Search API (FastAPI): English and Bengali, widened by the subject index
 - [x] Tests in GitHub Actions against a real PostgreSQL
+- [x] One-command demo with Docker and a committed sample of the data
 - [ ] Data-quality report
 - [ ] OCR for scanned items
 
@@ -81,7 +82,34 @@ catalogues) plus the subject index:
 | Duplicate IDs found (kept and flagged) | 157 |
 | Data-quality issues recorded in total | 973 |
 
-## Run it
+## Try it in 2 minutes
+
+You only need [Docker](https://www.docker.com/products/docker-desktop/).
+
+```sh
+git clone https://github.com/rahmantanzim/heritage-archives-catalogue.git
+cd heritage-archives-catalogue
+cp .env.example .env
+docker compose up
+```
+
+When the log says `Uvicorn running`, open **http://localhost:8000/docs** and try
+`GET /items` with `q` = `যশোর`, `Rajshahi University` or `posters`.
+
+This loads `data/sample/`: 1,123 real records chosen so every feature shows up
+(legacy Bijoy text, garbled English, duplicate and broken IDs, split rows).
+The results above come from the full catalogue of 35,254 records, which is
+kept out of the repository; it is available from Heritage Archives on request.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /items?q=যশোর` | Search titles, subjects, publishers and notes (Bengali or English) |
+| `GET /items?q=posters` | Subject index terms widen the search to whole catalogues |
+| `GET /items?catalogue=189.13` | All items in one catalogue |
+| `GET /items/256/13` | One ID; returns every copy if the source has duplicates |
+| `GET /issues/summary` | Data-quality problems found, by kind |
+
+## Develop
 
 Requires Python 3.12+ and Docker.
 
@@ -92,44 +120,25 @@ pip install -e ".[dev]"
 pytest                                   # database tests skip without a test DB
 ```
 
-Start PostgreSQL, create the tables, load the data, and start the API:
+Run the database in Docker and the Python code on your computer:
 
 ```sh
-cp .env.example .env                     # then set your own password in both places
-docker compose up -d
+cp .env.example .env                     # set your own password, in both places
+docker compose up -d db
 alembic upgrade head
-python -m ha_catalogue.load data/raw
+python -m ha_catalogue.load data/sample  # or data/raw for the full catalogue
 uvicorn ha_catalogue.api:create_app --factory --reload
 ```
 
-Open http://127.0.0.1:8000/docs to try the API.
-
-| Endpoint | What it does |
-|---|---|
-| `GET /items?q=যশোর` | Search titles, subjects, publishers and notes (Bengali or English) |
-| `GET /items?q=posters` | Subject index terms widen the search to whole catalogues |
-| `GET /items?catalogue=189.13` | All items in one catalogue |
-| `GET /items/189.9a/146` | One ID; returns every copy if the source has duplicates |
-| `GET /issues/summary` | Data-quality problems found, by kind |
-
-To run the database tests, create a database whose name ends in `_test`:
+Database tests need a database whose name ends in `_test`:
 
 ```sh
 docker compose exec db createdb -U ha ha_catalogue_test
-TEST_DATABASE_URL=postgresql+psycopg://ha:YOUR_PASSWORD@127.0.0.1:5432/ha_catalogue_test pytest
+TEST_DATABASE_URL=postgresql+psycopg://ha:YOUR_PASSWORD@127.0.0.1:5433/ha_catalogue_test pytest
 ```
 
-Read the catalogues and print a summary:
-
-```sh
-python -m ha_catalogue.ingest data/raw
-```
-
-Convert a line yourself:
-
-```sh
-python -m ha_catalogue.encoding "Kv‡e`yj Bmjvg"
-```
+With the full catalogue in `data/raw/`, `python scripts/make_sample.py data/raw data/sample`
+rebuilds the sample.
 
 ## How the conversion works
 
