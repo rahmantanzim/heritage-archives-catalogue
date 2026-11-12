@@ -71,3 +71,4 @@ class ReadResult:
     subjects: list[SubjectEntry] = field(default_factory=list)
     issues: list[Issue] = field(default_factory=list)
     skipped_empty_rows: int = 0
+    section_headings: int = 0  # rows like "131 Geneology" that name a section

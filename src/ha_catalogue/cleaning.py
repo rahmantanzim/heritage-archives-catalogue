@@ -16,8 +16,8 @@ from enum import StrEnum
 from ha_catalogue.encoding import normalize
 from ha_catalogue.garbled_english import recover_english
 
-# Cells that mean "nothing here".
-_EMPTY_MARKERS = frozenset({"", "-", "--", "—"})
+# Cells that mean "nothing here". নাই = "none" (common in the leaflet dates).
+_EMPTY_MARKERS = frozenset({"", "-", "--", "\u2014", "\u09a8\u09be\u0987"})
 
 
 class Fix(StrEnum):

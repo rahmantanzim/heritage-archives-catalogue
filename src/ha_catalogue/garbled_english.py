@@ -17,29 +17,34 @@ import re
 import string
 from functools import lru_cache
 
+from bijoy2unicode import converter
+
 from ha_catalogue.english import reads_as_english
 
-_BENGALI = re.compile(r"[ঀ-৿]")
-_I_KAR = "ি"  # ি — the converter moved it after the next letter
+_BENGALI = re.compile("[\u0980-\u09ff]")
+_BENGALI_LETTER = re.compile("[\u0985-\u09b9\u09dc-\u09df]")  # অ-হ, ড়-য়
+_ASCII_LETTER = re.compile("[A-Za-z]")
+_I_KAR = "\u09bf"  # ি — the converter moved it after the next letter
 
 
 @lru_cache(maxsize=1)
 def _bengali_to_latin() -> dict[str, str]:
     """Build the reverse map from the converter's own letter table."""
-    from bijoy2unicode import converter
-
     lib = converter.Unicode()
     mapping: dict[str, str] = {}
     for letter in string.ascii_letters:
         bengali = lib.convertBijoyToUnicode(letter)
         if bengali != letter:
             mapping.setdefault(bengali, letter)
-    # Both "y" and "z" become ু. "y" is far more common in English.
-    mapping["ু"] = "y"
-    # ড়, ঢ়, য় can be stored as one character or as letter + dot (়).
-    mapping["ড়"] = "o"
-    mapping["ঢ়"] = "p"
-    mapping["য়"] = "q"
+    # Both "y" and "z" become ু (U+09C1). "y" is far more common in English.
+    mapping["\u09c1"] = "y"
+    # ড় ঢ় য় can also be stored as letter + nukta dot (U+09BC).
+    mapping["\u09a1\u09bc"] = "o"
+    mapping["\u09a2\u09bc"] = "p"
+    mapping["\u09af\u09bc"] = "q"
+    # Digits were converted too: "3rd" became "৩ৎফ". ০ is U+09E6.
+    for digit in range(10):
+        mapping[chr(0x09E6 + digit)] = str(digit)
     return mapping
 
 
@@ -68,7 +73,12 @@ def _reverse(text: str) -> str:
 
 def recover_english(text: str) -> str | None:
     """Return the original English if `text` is garbled English, else None."""
-    if not _BENGALI.search(text):
+    # The converter garbled whole cells. Real English letters next to the
+    # Bengali ("Art and Artist অভিধান") mean the Bengali is real Bengali.
+    if _ASCII_LETTER.search(text):
+        return None
+    # Bengali digits alone ("২১০৭") are not evidence of garbled English.
+    if not _BENGALI_LETTER.search(text):
         return None
     candidate = _reverse(text.strip())
     if _BENGALI.search(candidate):  # some letters had no English source

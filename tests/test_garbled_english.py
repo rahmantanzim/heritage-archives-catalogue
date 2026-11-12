@@ -15,6 +15,8 @@ from ha_catalogue.garbled_english import recover_english
         # The converter moved "w" after the next letter; we move it back.
         ("ঝযড়রিহম ঃযব ঈড়ঁহঃৎু ঃড় রঃং চবড়ঢ়ষব", "Showing the Country to its People"),
         ("ঘবংিঢ়ধঢ়বৎ", "Newspaper"),
+        # Digits were converted too.
+        ("৩ৎফ অৎঃ ঊীযরনরঃরড়হ", "3rd Art Exhibition"),
     ],
 )
 def test_recovers_english(garbled, english):
@@ -30,6 +32,13 @@ def test_recovers_english(garbled, english):
         "চারুকলা বিভাগ, রা. বি.",
         "শিশু অধিকার কমিশন",
         "বিলু কবীর, বাংলাদেশের জেলা নামকরণের ইতিহাস, ঢাকা: গতিধারা, ২০১০।",
+        "১৯৭১",
+        # Real English next to real Bengali: the Bengali is real (leaflets, 37-130).
+        "Art and Artist অভিধান",
+        "(S) ধরলা: 17th Installation Ceremony",
+        "15ই June 2013",
+        # Bengali digits alone are not garbled English.
+        "SOC ২১০৭",
     ],
 )
 def test_leaves_real_bengali_alone(bengali):

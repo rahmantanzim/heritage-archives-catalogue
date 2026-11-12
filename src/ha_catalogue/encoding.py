@@ -26,6 +26,8 @@ import sys
 from dataclasses import dataclass
 from functools import lru_cache
 
+from bijoy2unicode import converter
+
 from ha_catalogue.english import reads_as_english
 
 # --- Detection -------------------------------------------------------------
@@ -35,7 +37,7 @@ from ha_catalogue.english import reads_as_english
 # So: any character outside plain ASCII that isn't Bengali and isn't normal
 # typographic punctuation counts as a Bijoy mark. Plus a few ASCII ones.
 _ASCII_BIJOY_MARKS = frozenset("^`~")
-_TYPOGRAPHIC = frozenset("’‘“”–—…\xa0")
+_TYPOGRAPHIC = frozenset("\u2019\u2018\u201c\u201d\u2013\u2014\u2026\xa0")  # ’ ‘ “ ” – — … nbsp
 
 # In Bijoy, "|" is the Bengali full stop (দাঁড়ি).
 _DARI = "|"
@@ -45,7 +47,7 @@ _DARI = "|"
 _MIXED_CASE = re.compile(r"[a-z][A-Z]")
 _WORD = re.compile(r"[A-Za-z]{3,}")
 
-_BENGALI_BLOCK = re.compile(r"[ঀ-৿]")
+_BENGALI_BLOCK = re.compile("[\u0980-\u09ff]")
 
 
 def _is_bijoy_mark(ch: str) -> bool:
@@ -84,13 +86,15 @@ _PRE_FIXES: tuple[tuple[str, str], ...] = (
 
 _PADDING = "  "
 _REPH_BIJOY = "©"
-_REPH_MARKER = ""  # a private-use character the library ignores
-_REPH = "র্"
+_REPH_MARKER = "\ue000"  # a private-use character the library ignores
+_REPH = "\u09b0\u09cd"  # র্
 
-_CONSONANT = "[ক-হড়-য়]"
-_VOWEL_SIGNS = "[়-ৌৗ]"
+_CONSONANT = "[\u0995-\u09b9\u09dc-\u09df]"  # ক-হ, ড়-য়
+_VOWEL_SIGNS = "[\u09bc-\u09cc\u09d7]"  # nukta, া-ৌ, ৗ
 # A consonant cluster (e.g. ক, ক্ষ, ন্ত্র), its vowel signs, then the marker.
-_REPH_PLACEMENT = re.compile(f"({_CONSONANT}(?:্{_CONSONANT})*)({_VOWEL_SIGNS}*){_REPH_MARKER}")
+_REPH_PLACEMENT = re.compile(
+    f"({_CONSONANT}(?:\u09cd{_CONSONANT})*)({_VOWEL_SIGNS}*){_REPH_MARKER}"
+)
 
 
 class ConversionError(ValueError):
@@ -98,9 +102,7 @@ class ConversionError(ValueError):
 
 
 @lru_cache(maxsize=1)
-def _library_converter():
-    from bijoy2unicode import converter
-
+def _library_converter() -> converter.Unicode:
     return converter.Unicode()
 
 
