@@ -7,13 +7,53 @@ history books, posters, leaflets and theses.
 
 ## The problem
 
-The catalogue has grown since 2002 across Word files, Excel sheets and CSVs.
-Much of the older Bengali text was typed with the legacy Bijoy keyboard in a
-SutonnyMJ font, so outside that font it reads as `Kv‡e`yj Bmjvg` instead of
-`কাবেদুল ইসলাম` and cannot be searched. IDs are written in several formats, and
-some are duplicated.
+Heritage Archives Bangladesh has collected for over twenty years, and its
+catalogue grew the same way: in Word files, Excel sheets and CSVs, typed by
+different people with different tools. Today that causes five problems.
 
-This project turns those sources into one clean, searchable catalogue.
+1. **No single place to search.** The website shows each catalogue as its own
+   table. To find every item about a topic, a researcher has to open 13+
+   catalogues one by one.
+2. **Bengali that cannot be read or searched.** Much of the older Bengali was
+   typed with the legacy Bijoy keyboard. The file stores Latin characters that
+   one font draws as Bengali, so outside that font `Kv‡e`yj Bmjvg` appears
+   instead of `কাবেদুল ইসলাম`. Search engines and databases see the Latin text.
+3. **English that was turned into nonsense.** An earlier conversion ran English
+   cells through a Bijoy converter too, so "Rajshahi University" became
+   `জধলংযধযর টহরাবৎংরঃু`.
+4. **IDs in many formats.** The same kind of ID appears as `189.13 (527)`,
+   `189.1.(29A)`, `36 RAB (1)`, `CD-01` or `222a (21-2-1927)`.
+5. **Hidden mistakes.** Duplicate IDs (61 rows share `189.9a (146)`), rows
+   split in two, and dates that Excel cut to `5-Nov` with no year. Nobody knew
+   how many, or where.
+
+## What this project does
+
+It reads every catalogue file, cleans it, and loads it into one database with
+a search API. It never changes data silently: each record keeps its original
+text next to the cleaned text, and every problem found is recorded with its
+file and row number.
+
+| Before | After |
+|---|---|
+| 13 catalogue files in 8 different layouts | One PostgreSQL database of 35,254 records |
+| `Kv‡e`yj Bmjvg` (legacy Bijoy) | কাবেদুল ইসলাম (Unicode), in 1,232 records |
+| `জধলংযধযর টহরাবৎংরঃু` | Rajshahi University, in 513 records |
+| `189.1.(29A)`, `36 RAB (1)` | One ID format: `189.1/29a`, `36rab/1` |
+| Mistakes nobody could count | 973 issues listed by file and row, ready to fix |
+| One catalogue table at a time | One search across all catalogues, Bengali or English, in under 100 ms |
+
+## Why it matters
+
+- **For researchers:** one search covers the whole collection, in either
+  language. A search for "posters" also finds every item in the poster
+  catalogue, through the archive's own subject index.
+- **For the archive's staff:** a precise to-do list. Instead of "the catalogue
+  has errors somewhere", they get "row 1050 of the district books file repeats
+  ID 189.9a (146)".
+- **For the collection's future:** clean Unicode text with standard IDs is
+  the base everything else needs: a new website, OCR of scanned pages, and
+  AI-assisted search. None of those work on Bijoy text or on IDs in 20 formats.
 
 ## Status
 
