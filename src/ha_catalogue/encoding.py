@@ -26,11 +26,16 @@ import sys
 from dataclasses import dataclass
 from functools import lru_cache
 
+from ha_catalogue.english import reads_as_english
+
 # --- Detection -------------------------------------------------------------
 
-# Characters SutonnyMJ uses for Bengali vowel signs and conjuncts.
-# Real English catalogue text almost never contains them.
-_BIJOY_MARKS = frozenset("‡†¨©¯¿Ö¦ˆ‰Š¤§¶µ¾½¼÷×Õ›¡¢£¥«»®°±´·¸¹º¬^`~ÔÿÐæšÍÛ")
+# SutonnyMJ draws Bengali vowel signs and conjuncts with symbols such as
+# ‡ † ¨ © ¯ Ö Ë. Real English catalogue text almost never contains them.
+# So: any character outside plain ASCII that isn't Bengali and isn't normal
+# typographic punctuation counts as a Bijoy mark. Plus a few ASCII ones.
+_ASCII_BIJOY_MARKS = frozenset("^`~")
+_TYPOGRAPHIC = frozenset("’‘“”–—…\xa0")
 
 # In Bijoy, "|" is the Bengali full stop (দাঁড়ি).
 _DARI = "|"
@@ -43,13 +48,19 @@ _WORD = re.compile(r"[A-Za-z]{3,}")
 _BENGALI_BLOCK = re.compile(r"[ঀ-৿]")
 
 
+def _is_bijoy_mark(ch: str) -> bool:
+    if ch in _ASCII_BIJOY_MARKS:
+        return True
+    return not ch.isascii() and ch not in _TYPOGRAPHIC
+
+
 def is_bijoy(text: str) -> bool:
     """Return True if `text` looks like Bijoy-encoded Bengali."""
     if not text or not text.strip():
         return False
     if _BENGALI_BLOCK.search(text):  # already Unicode Bengali
         return False
-    if any(ch in _BIJOY_MARKS for ch in text):
+    if any(_is_bijoy_mark(ch) for ch in text):
         return True
     words = _WORD.findall(text)
     if not words:
@@ -71,6 +82,7 @@ _PRE_FIXES: tuple[tuple[str, str], ...] = (
     ("æ", "z"),  # ু after র, as in নুরুল (library gives ম্ন)
 )
 
+_PADDING = "  "
 _REPH_BIJOY = "©"
 _REPH_MARKER = ""  # a private-use character the library ignores
 _REPH = "র্"
@@ -97,11 +109,15 @@ def to_unicode(text: str) -> str:
     for wrong, right in _PRE_FIXES:
         text = text.replace(wrong, right)
     text = text.replace(_REPH_BIJOY, _REPH_MARKER)
+    trailing_space = text[len(text.rstrip()) :]
 
     try:
-        result = _library_converter().convertBijoyToUnicode(text)
+        # The library reads past the end of short strings and crashes
+        # (e.g. on "GKz‡k"). Two spaces of padding prevent it; we strip them.
+        result = _library_converter().convertBijoyToUnicode(text.rstrip() + _PADDING)
     except Exception as exc:  # the library raises bare IndexErrors
         raise ConversionError(f"could not convert {text!r}") from exc
+    result = result.rstrip() + trailing_space
 
     result = _REPH_PLACEMENT.sub(lambda m: _REPH + m.group(1) + m.group(2), result)
     if _REPH_MARKER in result:
@@ -122,10 +138,48 @@ class NormalizedText:
     error: str | None = None
 
 
+# A cell can mix English and Bijoy, e.g.
+# "Anual Report 2010-11, kgwPZv nvmcvZvj wj:, XvKv|".
+# We split it at these separators and convert only the Bijoy sections.
+# A cross-reference ("see 400.13 (93)") also starts a new section.
+_SECTION_SEPARATOR = re.compile(r"([,;:]\s*|\s+(?=(?:also\s+)?see\b))")
+# A leading label like "(R) " or "(S) " is a code, not Bengali text.
+_LABEL_PREFIX = re.compile(r"^\([A-Z]\)\s*")
+# Cross-references are written in English and must be kept as they are.
+_CROSS_REFERENCE = re.compile(r"^\(?(?:also\s+)?see\b", re.IGNORECASE)
+# Short Bijoy words like "Ryb" (জুন) can pass the English test, so a
+# section needs at least this many letters to be kept as English.
+_MIN_ENGLISH_SECTION_LETTERS = 4
+
+
+def _keep_as_english(section: str) -> bool:
+    if _CROSS_REFERENCE.match(section.strip()):
+        return True
+    if is_bijoy(section):
+        return False
+    letters = sum(ch.isascii() and ch.isalpha() for ch in section)
+    return letters >= _MIN_ENGLISH_SECTION_LETTERS and reads_as_english(section)
+
+
+def _convert_sections(text: str) -> str:
+    label = _LABEL_PREFIX.match(text)
+    prefix = label.group(0) if label else ""
+    parts = _SECTION_SEPARATOR.split(text[len(prefix) :])
+    converted: list[str] = []
+    for index, part in enumerate(parts):
+        is_separator = index % 2 == 1
+        if is_separator or not part.strip() or _keep_as_english(part):
+            converted.append(part)
+        else:
+            converted.append(to_unicode(part))
+    return prefix + "".join(converted)
+
+
 def normalize(text: str) -> NormalizedText:
     """Clean one piece of text.
 
-    Unicode Bengali and English pass through (trimmed). Bijoy is converted.
+    Unicode Bengali and English pass through (trimmed). Bijoy is converted,
+    section by section, so English sections inside the same cell are kept.
     If conversion fails, the original is kept and the error is recorded, so
     one bad line never stops a whole catalogue from loading.
     """
@@ -134,7 +188,7 @@ def normalize(text: str) -> NormalizedText:
     if not is_bijoy(cleaned):
         return NormalizedText(cleaned, original, converted=False)
     try:
-        return NormalizedText(to_unicode(cleaned), original, converted=True)
+        return NormalizedText(_convert_sections(cleaned), original, converted=True)
     except ConversionError as exc:
         return NormalizedText(cleaned, original, converted=False, error=str(exc))
 

@@ -80,3 +80,47 @@ def test_normalize_passes_english_through():
     result = normalize(" The Police Act, 1861 ")
     assert result.text == "The Police Act, 1861"
     assert not result.converted
+
+
+# --- Mixed cells and library crashes ---
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # English sections stay English; Bijoy sections are converted.
+        (
+            "Anual Report 2010-11, kgwPZv nvmcvZvj wj:, XvKv|",
+            "Anual Report 2010-11, শমচিতা হাসপাতাল লি:, ঢাকা।",
+        ),
+        (
+            "Sharif Uddin Ahmed (Editor), XvKv: MÖš’cwÄ, Dhaka: Asiatic Society",
+            "Sharif Uddin Ahmed (Editor), ঢাকা: গ্রন্থপঞ্জি, Dhaka: Asiatic Society",
+        ),
+        # A label like "(S)" is kept.
+        ("(S) evgbWv½v eûgyLx RbKj¨vY msN", "(S) বামনডাঙ্গা বহুমুখী জনকল্যাণ সংঘ"),
+        # Cross-references stay in English.
+        ("evsjv GKv‡Wgx, 2002| see 400.13 (93)", "বাংলা একাডেমী, ২০০২। see 400.13 (93)"),
+    ],
+)
+def test_normalize_converts_only_bijoy_sections(raw, expected):
+    assert normalize(raw).text == expected
+
+
+@pytest.mark.parametrize(
+    ("bijoy", "expected"),
+    [
+        ("GKz‡k", "একুশে"),  # used to crash the library (short string)
+        ("QzwUi w`‡b", "ছুটির দিনে"),
+        ("Ag‡j›`y †`", "অমলেন্দু দে"),
+    ],
+)
+def test_short_strings_do_not_crash(bijoy, expected):
+    assert to_unicode(bijoy) == expected
+
+
+def test_source_typo_is_reported_not_guessed():
+    # The typist put a reph after ং, which has no consonant to attach to.
+    result = normalize("MYgva¨‡g evsjv‡`‡ki gyw³hy× (cÂwes©kwZ LÛ)")
+    assert result.error is not None
+    assert not result.converted
