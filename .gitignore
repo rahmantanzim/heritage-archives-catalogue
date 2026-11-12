@@ -8,3 +8,6 @@ __pycache__/
 .DS_Store
 build/
 dist/
+
+# The full catalogue is kept out of git; data/sample/ is committed.
+data/raw/
