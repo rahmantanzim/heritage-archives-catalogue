@@ -54,6 +54,11 @@ OCR and AI-ready search.
 - Clear names over comments. Add a comment only to explain *why*, especially
   for Bengali/Bijoy rules.
 - Use `logging`, not `print`, except in small CLI entry points.
+- Write non-ASCII characters in code as escapes (`"\u09cd"`), with the
+  character in a comment. Invisible and combining characters are otherwise
+  impossible to review. Literal Bengali is fine in comments and test data.
+- Schema changes need a new Alembic migration and a matching change in
+  `db.py`.
 
 ## Testing
 
@@ -76,7 +81,17 @@ pytest                           # all tests
 pytest tests/test_encoding.py -v # one file
 ruff check . && ruff format .    # lint and format
 python -m ha_catalogue.encoding "Kv‡e\`yj Bmjvg"   # try the converter
+
+docker compose up -d                 # PostgreSQL (needs .env, see .env.example)
+alembic upgrade head                 # create/upgrade tables
+python -m ha_catalogue.load data/raw # load the catalogue
+uvicorn ha_catalogue.api:create_app --factory --reload   # API at :8000/docs
+TEST_DATABASE_URL=postgresql+psycopg://ha:PASSWORD@127.0.0.1:5432/ha_catalogue_test pytest
 ```
+
+Database tests only run when TEST_DATABASE_URL is set, and refuse any
+database whose name doesn't end in `_test`. CI (GitHub Actions) always runs
+them against PostgreSQL 16.
 
 On this Mac, plain `python3` is Apple's Python 3.9. Never create the venv with
 it. Use `python3.12 -m venv .venv`.
@@ -92,8 +107,21 @@ src/ha_catalogue/
   ids.py              # parse the many ID formats into catalogue + number
   models.py           # CatalogueItem, SubjectEntry, Issue, ReadResult
   quality.py          # checks across all items (duplicate IDs)
-  readers/            # one reader per source format
+  readers/            # one module per source shape:
+    _common.py          #   shared helpers (rows, cells, issues)
+    category_catalogue.py  # ID, category, title (most files)
+    numbered_list.py    #   posters 256, leaflets 180
+    theses.py           #   catalogue 82
+    biography_index.py  #   36 PC: person -> item, grouped by item
+    subject_index.py    #   catalogue 00
   ingest.py           # read every source; `python -m ha_catalogue.ingest data/raw`
+  settings.py         # DATABASE_URL from env or .env (pydantic-settings)
+  db.py               # SQLAlchemy tables: items, subjects, issues
+  text.py             # search_key(): NFC + casefold, used for load and search
+  load.py             # replace all data in one transaction; `python -m ha_catalogue.load`
+  search.py           # search logic (no HTTP), subject-index widening
+  api.py              # FastAPI app factory: create_app()
+migrations/           # Alembic; one file per schema change, never edit published ones
 tests/            # pytest tests, one file per module
 data/raw/         # original catalogue files, never edited by code
 data/processed/   # pipeline output (git-ignored once added)
@@ -141,26 +169,30 @@ converter also moved "w" (ি) after the next letter, so we move it back
 
 ## Data sources (in `data/raw/`)
 
-| File | Format | Notes |
-|---|---|---|
-| Catalogue 00 Main List | CSV, Unicode | Subject index (`Title`, `Reference`), e.g. "Abortion → see Family Planning 104". Use it to widen searches. |
-| Catalogue 256 Posters | CSV, Unicode | ~4,530 rows: `Poster#, Topics, Publisher, Comments`. Some duplicate and malformed IDs, a few garbled English cells. |
-| Catalogue 189 District Books | CSV, Unicode | ~3,600 rows: `Catalogue #, District/Topic, Title & Information`. IDs like `189.13 (527)`. |
-| Catalogue 001–35, 190–242 | Word `.doc` | ID line (`1 (1)`) then a title line. Bijoy and English mixed. |
-| Catalogue 243 Periodicals | Word `.doc` | Messy list; IDs in many formats. |
-| Catalogue 243 Eid/Sharodiya | Word `.doc` | A table: catalogue no., name (Eng), name (Beng), address, subject, type, collection. |
+All sources are Unicode CSV exports of the archive's catalogues. The file ->
+reader mapping lives in `ingest.SOURCES`.
 
-Convert `.doc` files to `.docx` first (Word: Save As → .docx) so `python-docx`
-can read paragraphs and tables.
+| File | Reader | Notes |
+|---|---|---|
+| catalogue-000-main-list.csv | subject index | "Abortion -> see Family Planning 104". Widens searches. |
+| catalogue-001-035, 037-130, 131-188, 189-district-books-1-32, 190-242, 250-399 | category catalogue | `ID (n)`, category, title. `131` alone = section heading. No ID + title = continues the item above. 190-242 is mostly Bijoy. 37-130 has a "Kept at" column. |
+| catalogue-036-rab/naz-biography, 036.4-biography-pms | category catalogue, title only | `36 RAB (1)` -> `36rab/1`. |
+| catalogue-036-pc-biography-index | biography index | Person -> `36 PC (n)`. Grouped: one item per ID listing every person. |
+| catalogue-082-theses | theses | `82.1`, `[82.148]`, `400.17 (152) [82.148]` (cross-listed). |
+| catalogue-180-leaflets, 256-posters | numbered list | Number, topic, publisher, date/comments. `1901-2000` = blank range. Leaflet dates are Excel-mangled (`5-Nov`, no year). |
+
+Known source problems (flag, never guess): 61 rows share `189.9a (146)`;
+`241 (10` is missing a bracket; volume names act as numbers
+(`91c (দ্বাদশ খণ্ড)`).
 
 ## Roadmap
 
 1. ~~Bijoy detection and conversion~~
 2. ~~2a: CSV readers, ID parsing, garbled-English recovery~~
-   2b: Word readers (.docx). 2c: data-quality report (CSV/HTML)
-3. PostgreSQL storage (SQLAlchemy, Alembic migrations)
-4. Search API (FastAPI, Postgres full-text and trigram search, subject index)
-5. Tests in CI (GitHub Actions) and Docker Compose
+   ~~2b: readers for all 13 CSV catalogues~~. 2c: data-quality report (CSV/HTML)
+3. ~~PostgreSQL storage (SQLAlchemy, Alembic migrations)~~
+4. ~~Search API (FastAPI, trigram-indexed search, subject index)~~
+5. ~~Tests in CI (GitHub Actions) and Docker Compose~~
 6. OCR for scanned items (Tesseract, Bengali + English)
 7. Stretch: semantic search with pgvector
 

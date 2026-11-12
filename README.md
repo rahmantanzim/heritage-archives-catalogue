@@ -19,22 +19,64 @@ This project turns those sources into one clean, searchable catalogue.
 
 - [x] Detect Bijoy text and convert it to Unicode Bengali
 - [x] Recover English that was wrongly converted into Bengali letters
-- [x] Read the CSV catalogues (posters, district books, subject index)
-- [ ] Read the Word catalogues
+- [x] Read all 13 CSV catalogues: category catalogues, numbered lists
+      (posters, leaflets), theses, biography lists and index, subject index
+- [x] PostgreSQL storage with Alembic migrations
+- [x] Search API (FastAPI): English and Bengali, widened by the subject index
+- [x] Tests in GitHub Actions against a real PostgreSQL
 - [ ] Data-quality report
-- [ ] PostgreSQL storage
-- [ ] Search API (FastAPI)
 - [ ] OCR for scanned items
+
+## Results so far
+
+13 catalogue files (CSV, exported from the archive's Word and Excel
+catalogues) plus the subject index:
+
+| | |
+|---|---|
+| Items loaded | 35,254 |
+| Subject index entries | 781 |
+| Items with legacy Bijoy text converted to Unicode | 1,232 |
+| Items with English recovered from garbled Bengali letters | 513 |
+| Duplicate IDs found (kept and flagged) | 157 |
+| Data-quality issues recorded in total | 973 |
 
 ## Run it
 
-Requires Python 3.11+.
+Requires Python 3.12+ and Docker.
 
 ```sh
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pytest
+pytest                                   # database tests skip without a test DB
+```
+
+Start PostgreSQL, create the tables, load the data, and start the API:
+
+```sh
+cp .env.example .env                     # then set your own password in both places
+docker compose up -d
+alembic upgrade head
+python -m ha_catalogue.load data/raw
+uvicorn ha_catalogue.api:create_app --factory --reload
+```
+
+Open http://127.0.0.1:8000/docs to try the API.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /items?q=যশোর` | Search titles, subjects, publishers and notes (Bengali or English) |
+| `GET /items?q=posters` | Subject index terms widen the search to whole catalogues |
+| `GET /items?catalogue=189.13` | All items in one catalogue |
+| `GET /items/189.9a/146` | One ID; returns every copy if the source has duplicates |
+| `GET /issues/summary` | Data-quality problems found, by kind |
+
+To run the database tests, create a database whose name ends in `_test`:
+
+```sh
+docker compose exec db createdb -U ha ha_catalogue_test
+TEST_DATABASE_URL=postgresql+psycopg://ha:YOUR_PASSWORD@127.0.0.1:5432/ha_catalogue_test pytest
 ```
 
 Read the catalogues and print a summary:
@@ -63,4 +105,4 @@ Some English cells were run through a Bijoy converter by mistake, so
 "Rajshahi University" became `জধলংযধযর টহরাবৎংরঃু`. The mistake can be reversed
 letter by letter. See [`garbled_english.py`](src/ha_catalogue/garbled_english.py).
 A result is only accepted when it reads as English, so real Bengali such as
-`রাজশাহী` is never touched. 346 poster records were recovered this way.
+`রাজশাহী` is never touched. 513 items were recovered this way. A cell is only treated as garbled when it has no real English letters in it, because the converter garbled whole cells.
