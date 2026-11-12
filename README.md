@@ -18,7 +18,9 @@ This project turns those sources into one clean, searchable catalogue.
 ## Status
 
 - [x] Detect Bijoy text and convert it to Unicode Bengali
-- [ ] Read each catalogue source (CSV, Word)
+- [x] Recover English that was wrongly converted into Bengali letters
+- [x] Read the CSV catalogues (posters, district books, subject index)
+- [ ] Read the Word catalogues
 - [ ] Data-quality report
 - [ ] PostgreSQL storage
 - [ ] Search API (FastAPI)
@@ -35,6 +37,12 @@ pip install -e ".[dev]"
 pytest
 ```
 
+Read the catalogues and print a summary:
+
+```sh
+python -m ha_catalogue.ingest data/raw
+```
+
 Convert a line yourself:
 
 ```sh
@@ -48,3 +56,11 @@ See [`src/ha_catalogue/encoding.py`](src/ha_catalogue/encoding.py). The
 wrongly and crashes when a line ends with one, and it maps a few characters
 wrongly. This project handles reph itself and fixes those characters. Every
 rule was found by checking real catalogue lines, and each one is a test case.
+
+## Garbled English
+
+Some English cells were run through a Bijoy converter by mistake, so
+"Rajshahi University" became `জধলংযধযর টহরাবৎংরঃু`. The mistake can be reversed
+letter by letter. See [`garbled_english.py`](src/ha_catalogue/garbled_english.py).
+A result is only accepted when it reads as English, so real Bengali such as
+`রাজশাহী` is never touched. 346 poster records were recovered this way.
