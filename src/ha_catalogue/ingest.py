@@ -8,23 +8,40 @@ from __future__ import annotations
 import sys
 from collections import Counter
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from ha_catalogue.models import ReadResult
 from ha_catalogue.quality import find_duplicate_ids
-from ha_catalogue.readers.csv_catalogues import (
-    read_district_books,
-    read_posters,
-    read_subject_index,
+from ha_catalogue.readers.biography_index import read_biography_index
+from ha_catalogue.readers.category_catalogue import (
+    STANDARD,
+    TITLE_ONLY,
+    WITH_KEPT_AT,
+    read_category_catalogue,
 )
+from ha_catalogue.readers.numbered_list import LEAFLETS, POSTERS, read_numbered_list
+from ha_catalogue.readers.subject_index import read_subject_index
+from ha_catalogue.readers.theses import read_theses
 
 Reader = Callable[[Path], ReadResult]
 
 # File name -> reader. New sources are added here.
 SOURCES: dict[str, Reader] = {
     "catalogue-000-main-list.csv": read_subject_index,
-    "catalogue-189-district-books-1-32.csv": read_district_books,
-    "catalogue-256-posters.csv": read_posters,
+    "catalogue-001-035.csv": partial(read_category_catalogue, columns=STANDARD),
+    "catalogue-036-rab-biography.csv": partial(read_category_catalogue, columns=TITLE_ONLY),
+    "catalogue-036-naz-biography.csv": partial(read_category_catalogue, columns=TITLE_ONLY),
+    "catalogue-036.4-biography-pms.csv": partial(read_category_catalogue, columns=TITLE_ONLY),
+    "catalogue-036-pc-biography-index.csv": read_biography_index,
+    "catalogue-037-130.csv": partial(read_category_catalogue, columns=WITH_KEPT_AT),
+    "catalogue-082-theses.csv": read_theses,
+    "catalogue-131-188.csv": partial(read_category_catalogue, columns=STANDARD),
+    "catalogue-180-leaflets.csv": partial(read_numbered_list, layout=LEAFLETS),
+    "catalogue-189-district-books-1-32.csv": partial(read_category_catalogue, columns=STANDARD),
+    "catalogue-190-242.csv": partial(read_category_catalogue, columns=STANDARD),
+    "catalogue-250-399.csv": partial(read_category_catalogue, columns=STANDARD),
+    "catalogue-256-posters.csv": partial(read_numbered_list, layout=POSTERS),
 }
 
 
@@ -39,6 +56,7 @@ def read_all(raw_dir: Path) -> ReadResult:
         combined.subjects.extend(result.subjects)
         combined.issues.extend(result.issues)
         combined.skipped_empty_rows += result.skipped_empty_rows
+        combined.section_headings += result.section_headings
     combined.issues.extend(find_duplicate_ids(combined.items))
     return combined
 
@@ -50,6 +68,7 @@ def main(argv: list[str]) -> int:
     print(f"Items:           {len(result.items)}")
     print(f"Subject entries: {len(result.subjects)}")
     print(f"Empty rows:      {result.skipped_empty_rows}")
+    print(f"Section headings:{result.section_headings:>6}")
     print("\nItems by source:")
     for source, count in Counter(i.source for i in result.items).most_common():
         print(f"  {source:45} {count}")
