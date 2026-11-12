@@ -45,3 +45,28 @@ jobs:
 
       - name: Test
         run: pytest -v
+
+  demo:
+    # Runs the project exactly as a visitor would: docker compose up.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start database and API
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait
+
+      - name: Check the API answers
+        run: |
+          curl -fsS http://127.0.0.1:8000/health
+          curl -fsS "http://127.0.0.1:8000/items?q=posters&limit=1" \
+            | python3 -c "import json, sys; assert json.load(sys.stdin)['total'] > 0"
+
+      - name: Show logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop
+        if: always()
+        run: docker compose down -v
