@@ -42,13 +42,15 @@ class SubjectEntry:
 
 
 class IssueKind(StrEnum):
+    """Kinds of data problem. Successful fixes are not issues: they are
+    recorded on each item instead (CatalogueItem.fixes)."""
+
     MISSING_ID = "missing_id"
     MALFORMED_ID = "malformed_id"
     DUPLICATE_ID = "duplicate_id"
     RESERVED_RANGE = "reserved_range"
     CONTINUATION_ROW = "continuation_row"
     CONVERSION_FAILED = "conversion_failed"
-    ENGLISH_RECOVERED = "english_recovered"
     MISSING_REFERENCE = "missing_reference"
     SPLIT_ROW_REPAIRED = "split_row_repaired"
     SUSPECT_ROW = "suspect_row"
@@ -56,7 +58,7 @@ class IssueKind(StrEnum):
 
 @dataclass(frozen=True)
 class Issue:
-    """A data-quality problem found while reading. Never fatal."""
+    """A data problem found while reading, for a person to look at. Never fatal."""
 
     source: str
     row: int

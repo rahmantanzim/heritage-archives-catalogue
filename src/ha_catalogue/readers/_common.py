@@ -26,21 +26,14 @@ def cell_at(cells: list[str], index: int | None) -> str:
 
 
 def record_cleaning(issues: list[Issue], source: str, row: int, *cells: CleanCell) -> None:
-    """Add an issue for every cell that failed to convert or was recovered."""
+    """Add an issue for every cell that could not be converted.
+
+    Successful fixes are not issues: they are kept on the item (`fixes`).
+    """
     for cell in cells:
         if cell.error:
             issues.append(
                 Issue(source, row, IssueKind.CONVERSION_FAILED, cell.error, cell.original)
-            )
-        if cell.fix is Fix.ENGLISH_RECOVERED:
-            issues.append(
-                Issue(
-                    source,
-                    row,
-                    IssueKind.ENGLISH_RECOVERED,
-                    f"recovered as {cell.text!r}",
-                    cell.original.strip(),
-                )
             )
 
 

@@ -63,3 +63,13 @@ def test_read_leaflets(write_csv):
     assert result.items[1].notes is None  # নাই ("none") means empty
     reserved = [i for i in result.issues if i.kind is IssueKind.RESERVED_RANGE]
     assert [i.value for i in reserved] == ["1901-2000"]
+
+
+def test_successful_fixes_are_not_reported_as_problems(write_csv):
+    result = read_numbered_list(write_csv("posters.csv", POSTER_ROWS), POSTERS)
+    assert any(Fix.ENGLISH_RECOVERED in item.fixes for item in result.items)
+    assert all(issue.kind is not IssueKind.CONVERSION_FAILED for issue in result.issues)
+    # Only real problems are issues: a follow-on row and a blank range.
+    assert sorted(issue.kind for issue in result.issues) == sorted(
+        [IssueKind.CONTINUATION_ROW, IssueKind.RESERVED_RANGE]
+    )

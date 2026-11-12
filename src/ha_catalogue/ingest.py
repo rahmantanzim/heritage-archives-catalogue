@@ -75,7 +75,7 @@ def main(argv: list[str]) -> int:
     print("\nCleaning applied:")
     for fix, count in Counter(f for i in result.items for f in i.fixes).most_common():
         print(f"  {fix:45} {count}")
-    print("\nIssues:")
+    print("\nProblems found (for a person to check):")
     for kind, count in Counter(i.kind for i in result.issues).most_common():
         print(f"  {kind:45} {count}")
     return 0

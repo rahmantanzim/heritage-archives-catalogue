@@ -40,7 +40,7 @@ file and row number.
 | `Kv‡e`yj Bmjvg` (legacy Bijoy) | কাবেদুল ইসলাম (Unicode), in 1,232 records |
 | `জধলংযধযর টহরাবৎংরঃু` | Rajshahi University, in 513 records |
 | `189.1.(29A)`, `36 RAB (1)` | One ID format: `189.1/29a`, `36rab/1` |
-| Mistakes nobody could count | 973 issues listed by file and row, ready to fix |
+| Mistakes nobody could count | 348 problems listed by file and row, ready to fix |
 | One catalogue table at a time | One search across all catalogues, Bengali or English, in under 100 ms |
 
 ## Why it matters
@@ -48,7 +48,7 @@ file and row number.
 - **For researchers:** one search covers the whole collection, in either
   language. A search for "posters" also finds every item in the poster
   catalogue, through the archive's own subject index.
-- **For the archive's staff:** a precise to-do list. Instead of "the catalogue
+- **For the archive's staff:** a precise to-do list of 348 problems. Instead of "the catalogue
   has errors somewhere", they get "row 1050 of the district books file repeats
   ID 189.9a (146)".
 - **For the collection's future:** clean Unicode text with standard IDs is
@@ -80,7 +80,7 @@ catalogues) plus the subject index:
 | Items with legacy Bijoy text converted to Unicode | 1,232 |
 | Items with English recovered from garbled Bengali letters | 513 |
 | Duplicate IDs found (kept and flagged) | 157 |
-| Data-quality issues recorded in total | 973 |
+| Data problems found, each with its file and row | 348 |
 
 ## Try it in 2 minutes
 

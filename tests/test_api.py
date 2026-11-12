@@ -70,8 +70,8 @@ SAMPLE = ReadResult(
     ],
     issues=[
         Issue("test.csv", 4, IssueKind.DUPLICATE_ID, "256/13 also used on row 3", "13"),
-        Issue("test.csv", 2, IssueKind.ENGLISH_RECOVERED, "recovered", "ওংঃ অৎঃ বীযরনরঃরড়হ"),
-        Issue("test.csv", 9, IssueKind.ENGLISH_RECOVERED, "recovered", "ঘবংঃষব"),
+        Issue("test.csv", 5, IssueKind.MALFORMED_ID, "extra text after ID", "189.22 (1) e"),
+        Issue("test.csv", 9, IssueKind.MALFORMED_ID, "unreadable catalogue ID", "241 (10"),
     ],
 )
 
@@ -184,7 +184,7 @@ def test_get_missing_item(client):
 
 
 def test_issue_summary(client):
-    assert client.get("/issues/summary").json() == {"english_recovered": 2, "duplicate_id": 1}
+    assert client.get("/issues/summary").json() == {"malformed_id": 2, "duplicate_id": 1}
 
 
 def test_load_replaces_previous_data(session_factory, client):
