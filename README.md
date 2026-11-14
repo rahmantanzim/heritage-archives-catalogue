@@ -174,3 +174,19 @@ Some English cells were run through a Bijoy converter by mistake, so
 letter by letter. See [`garbled_english.py`](src/ha_catalogue/garbled_english.py).
 A result is only accepted when it reads as English, so real Bengali such as
 `রাজশাহী` is never touched. 513 items were recovered this way. A cell is only treated as garbled when it has no real English letters in it, because the converter garbled whole cells.
+
+## Roadmap
+
+Planned, not built yet. The full plan is in
+[`docs/product-plan.md`](docs/product-plan.md).
+
+- **Phase 1, public catalogue (planned, December 2026):** a read-only website
+  with search, category pages, item pages and filters.
+- **Phase 2, admin panel (planned, early 2027):** staff log in, upload files,
+  preview and approve changes, and edit single records.
+- **Phase 3, smarter search (planned):** transliteration ("Rabindranath" finds
+  রবীন্দ্রনাথ), meaning-based and hybrid search, checked against 50 real test
+  searches.
+- **Phases 4 and 5 (planned, later):** move heritage-archives.org off
+  WordPress, then scans, OCR and an "Ask the archive" answer that always links
+  to real items.
