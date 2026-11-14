@@ -124,3 +124,39 @@ def test_source_typo_is_reported_not_guessed():
     result = normalize("MYgva¨‡g evsjv‡`‡ki gyw³hy× (cÂwes©kwZ LÛ)")
     assert result.error is not None
     assert not result.converted
+
+
+# --- Patterns found by the hand-checked evaluation (data/eval/) ---
+
+
+@pytest.mark.parametrize(
+    ("bijoy", "expected"),
+    [
+        # Í after any letter is ত (the library gave ত্ম)
+        ("gy¯Ívdv", "মুস্তাফা"),
+        ("cvwK¯Ívb", "পাকিস্তান"),
+        ("cÖ¯ÍvweZ", "প্রস্তাবিত"),
+        # ø is ল below the letter (the library gave স্ন)
+        ("cjøx", "পল্লী"),
+        ("Kzwgjøv", "কুমিল্লা"),
+        ("Avãyjøvn", "আব্দুল্লাহ"),
+        ("WvweøD", "ডাব্লিউ"),
+        # ª¨ is ্র then ্য (the library gave বর্য)
+        ("eª¨v‡K", "ব্র্যাকে"),
+    ],
+)
+def test_converts_patterns_found_by_evaluation(bijoy, expected):
+    assert to_unicode(bijoy) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("cÖwkÿY, 1995, RDRS.", "প্রশিক্ষণ, ১৯৯৫, RDRS."),
+        ("TMSS evZ©v el©-1", "TMSS বার্তা বর্ষ-১"),
+        # Short capitals are Bengali in Bijoy: GK = এক
+        ("GK wbe©vPb", "এক নির্বাচন"),
+    ],
+)
+def test_keeps_english_acronyms_inside_bijoy(raw, expected):
+    assert normalize(raw).text == expected

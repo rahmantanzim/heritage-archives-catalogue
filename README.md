@@ -43,6 +43,25 @@ file and row number.
 | Mistakes nobody could count | 348 problems listed by file and row, ready to fix |
 | One catalogue table at a time | One search across all catalogues, Bengali or English, in under 100 ms |
 
+## Measured accuracy
+
+The cleaning was measured, not just tested on chosen examples. 200 real cells
+were picked at random (100 converted from Bijoy, 40 recovered English, and 60
+cells the pipeline left alone, to catch misses), and a Bengali reader checked
+each one by hand. The first measurement found four repeated error patterns in
+the open-source converter; fixing them raised accuracy:
+
+| Group | Before | After |
+|---|---|---|
+| All 200 cells | 91.0% | **98.0%** |
+| Bijoy converted to Unicode | 83.0% | **96.0%** |
+| English recovered | 97.5% | **100%** |
+| Cells correctly left alone | 100% | **100%** |
+
+Two of the four remaining errors are typing mistakes in the source. CI fails
+if accuracy ever drops below the saved baseline (`data/eval/baseline.json`).
+Run it yourself: `python -m ha_catalogue.evaluation data/eval/conversion_eval.csv`.
+
 ## Why it matters
 
 - **For researchers:** one search covers the whole collection, in either

@@ -122,6 +122,7 @@ src/ha_catalogue/
   load.py             # replace all data in one transaction; `python -m ha_catalogue.load`
   search.py           # search logic (no HTTP), subject-index widening
   api.py              # FastAPI app factory: create_app()
+  evaluation.py       # accuracy against the hand-checked set in data/eval/
 migrations/           # Alembic; one file per schema change, never edit published ones
 tests/            # pytest tests, one file per module
 data/raw/         # the full catalogue: NOT in git (git-ignored), local only
@@ -147,11 +148,32 @@ showing they're wrong:
   (`see 400.13 (93)`) and labels like `(S)` are kept as written.
 - The library crashes on some short strings. `to_unicode()` pads with two
   spaces and strips them after.
+- Found by the evaluation (Nov 2026, accuracy 91% -> 98%): `Í` is always ত
+  (pre-fix to `—`); `ø` is ল-ফলা (্ল), placed after its cluster like reph is
+  placed before; `ª¨` is ্র then ্য; 4+ capital letters inside Bijoy are
+  English acronyms (RDRS, TMSS) but 2-3 are often Bengali (GK = এক, FY = ঋণ);
+  a doubled ু in garbled English is "zz" (Razzaque).
 - Some errors are in the source itself (e.g. `AeR©vfvi`, where the typist put
   the reph on the wrong letter). Flag these for human review. Don't guess.
 
 I read Bengali, so I validate conversion output by hand. When unsure whether
 a conversion is right, show me the before and after and ask.
+
+## Measuring accuracy
+
+`data/eval/conversion_eval.csv` = 200 random real cells (stratified: 100 Bijoy
+converted, 40 English recovered, 30 Latin left alone, 30 Bengali left alone),
+hand-checked by Tanzim (Y, or N + the correct text). Built once by
+`scripts/make_eval_set.py` (seed 2026); never regenerate it after labelling.
+
+- `python -m ha_catalogue.evaluation data/eval/conversion_eval.csv` scores the
+  CURRENT code against those labels and lists every wrong cell.
+- `--save-baseline` writes `data/eval/baseline.json`; `tests/test_accuracy.py`
+  fails if any group drops below it. After an improvement, save again (a ratchet).
+- Labelling rule: judge the conversion, not the source. A typo in the original
+  that is carried over correctly counts as correct.
+- Before fixing a conversion rule: run the evaluation, fix, run again, and
+  report the before/after numbers.
 
 ## Garbled English: rules already learned
 

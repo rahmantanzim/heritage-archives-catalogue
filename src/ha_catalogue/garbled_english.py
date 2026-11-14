@@ -38,6 +38,8 @@ def _bengali_to_latin() -> dict[str, str]:
             mapping.setdefault(bengali, letter)
     # Both "y" and "z" become ু (U+09C1). "y" is far more common in English.
     mapping["\u09c1"] = "y"
+    # ...but a doubled ু was "zz" ("Razzaque"); "yy" is rare in English.
+    mapping["\u09c1\u09c1"] = "zz"
     # ড় ঢ় য় can also be stored as letter + nukta dot (U+09BC).
     mapping["\u09a1\u09bc"] = "o"
     mapping["\u09a2\u09bc"] = "p"

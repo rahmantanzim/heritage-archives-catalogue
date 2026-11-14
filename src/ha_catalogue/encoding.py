@@ -78,23 +78,34 @@ def is_bijoy(text: str) -> bool:
 # Characters the library maps wrongly, replaced with the Bijoy form it
 # handles correctly. Found by checking real catalogue lines.
 _PRE_FIXES: tuple[tuple[str, str], ...] = (
-    ("šÍ", "š—"),  # ন্ত (library gives ন্ত্ম)
+    ("Í", "—"),  # ত as in ন্ত, স্ত (library gives ত্ম: পাকিস্ত্মান)
     ("ÿ", "¶"),  # ক্ষ (library leaves ÿ unconverted)
     ("Ð", "Û"),  # ণ্ড/ন্ড (library gives "-")
     ("æ", "z"),  # ু after র, as in নুরুল (library gives ম্ন)
 )
 
 _PADDING = "  "
-_REPH_BIJOY = "©"
-_REPH_MARKER = "\ue000"  # a private-use character the library ignores
+# Signs the library places wrongly. Each is swapped for a private-use marker
+# (a character the library passes through untouched), the library converts
+# the rest, and we attach the sign to the right consonant cluster ourselves.
+_REPH_BIJOY = "©"  # র্ on top: goes BEFORE its cluster (নির্বাচন)
+_LA_FALA_BIJOY = "ø"  # ্ল below: goes AFTER its cluster (পল্লী, ব্লি); library gives স্ন
+_RA_YA_FALA_BIJOY = "ª¨"  # ্র then ্য (ব্র্যাক); library gives বর্য
+_REPH_MARKER = "\ue000"
+_LA_FALA_MARKER = "\ue001"
+_YA_FALA_MARKER = "\ue002"
+_MARKERS = (_REPH_MARKER, _LA_FALA_MARKER, _YA_FALA_MARKER)
 _REPH = "\u09b0\u09cd"  # র্
+_LA_FALA = "\u09cd\u09b2"  # ্ল
+_YA_FALA = "\u09cd\u09af"  # ্য
 
 _CONSONANT = "[\u0995-\u09b9\u09dc-\u09df]"  # ক-হ, ড়-য়
 _VOWEL_SIGNS = "[\u09bc-\u09cc\u09d7]"  # nukta, া-ৌ, ৗ
-# A consonant cluster (e.g. ক, ক্ষ, ন্ত্র), its vowel signs, then the marker.
-_REPH_PLACEMENT = re.compile(
-    f"({_CONSONANT}(?:\u09cd{_CONSONANT})*)({_VOWEL_SIGNS}*){_REPH_MARKER}"
-)
+# A consonant cluster (e.g. ক, ক্ষ, ন্ত্র) and its vowel signs, before a marker.
+_CLUSTER = f"({_CONSONANT}(?:\u09cd{_CONSONANT})*)({_VOWEL_SIGNS}*)"
+_REPH_PLACEMENT = re.compile(_CLUSTER + _REPH_MARKER)
+_LA_FALA_PLACEMENT = re.compile(_CLUSTER + _LA_FALA_MARKER)
+_YA_FALA_PLACEMENT = re.compile(_CLUSTER + _YA_FALA_MARKER)
 
 
 class ConversionError(ValueError):
@@ -110,7 +121,11 @@ def to_unicode(text: str) -> str:
     """Convert Bijoy text to Unicode Bengali."""
     for wrong, right in _PRE_FIXES:
         text = text.replace(wrong, right)
-    text = text.replace(_REPH_BIJOY, _REPH_MARKER)
+    text = (
+        text.replace(_RA_YA_FALA_BIJOY, "ª" + _YA_FALA_MARKER)
+        .replace(_LA_FALA_BIJOY, _LA_FALA_MARKER)
+        .replace(_REPH_BIJOY, _REPH_MARKER)
+    )
     trailing_space = text[len(text.rstrip()) :]
 
     try:
@@ -121,9 +136,13 @@ def to_unicode(text: str) -> str:
         raise ConversionError(f"could not convert {text!r}") from exc
     result = result.rstrip() + trailing_space
 
+    # Signs below a letter join its cluster first; then the reph goes before
+    # the whole cluster.
+    result = _LA_FALA_PLACEMENT.sub(lambda m: m.group(1) + _LA_FALA + m.group(2), result)
+    result = _YA_FALA_PLACEMENT.sub(lambda m: m.group(1) + _YA_FALA + m.group(2), result)
     result = _REPH_PLACEMENT.sub(lambda m: _REPH + m.group(1) + m.group(2), result)
-    if _REPH_MARKER in result:
-        raise ConversionError(f"reph with no consonant before it in {text!r}")
+    if any(marker in result for marker in _MARKERS):
+        raise ConversionError(f"a sign with no consonant before it in {text!r}")
     return result
 
 
@@ -149,6 +168,11 @@ _SECTION_SEPARATOR = re.compile(r"([,;:]\s*|\s+(?=(?:also\s+)?see\b))")
 _LABEL_PREFIX = re.compile(r"^\([A-Z]\)\s*")
 # Cross-references are written in English and must be kept as they are.
 _CROSS_REFERENCE = re.compile(r"^\(?(?:also\s+)?see\b", re.IGNORECASE)
+# An English acronym inside a Bijoy section ("TMSS evZ©v", "RDRS."). Bijoy
+# also writes Bengali in capitals ("GK" = এক, "FY" = ঋণ, "GBW" = এইড), but in
+# this catalogue only 4+ capital letters are always English.
+_ACRONYM = re.compile(r"^\(?[A-Z]{4,}\)?[.,:;)]*$")
+_WHITESPACE = re.compile(r"(\s+)")
 # Short Bijoy words like "Ryb" (জুন) can pass the English test, so a
 # section needs at least this many letters to be kept as English.
 _MIN_ENGLISH_SECTION_LETTERS = 4
@@ -163,6 +187,21 @@ def _keep_as_english(section: str) -> bool:
     return letters >= _MIN_ENGLISH_SECTION_LETTERS and reads_as_english(section)
 
 
+def _convert_bijoy_section(section: str) -> str:
+    """Convert a Bijoy section, keeping English acronyms inside it."""
+    pieces: list[str] = []
+    pending = ""
+    for token in _WHITESPACE.split(section):
+        if _ACRONYM.match(token):
+            pieces.append(to_unicode(pending) if pending.strip() else pending)
+            pieces.append(token)
+            pending = ""
+        else:
+            pending += token
+    pieces.append(to_unicode(pending) if pending.strip() else pending)
+    return "".join(pieces)
+
+
 def _convert_sections(text: str) -> str:
     label = _LABEL_PREFIX.match(text)
     prefix = label.group(0) if label else ""
@@ -173,7 +212,7 @@ def _convert_sections(text: str) -> str:
         if is_separator or not part.strip() or _keep_as_english(part):
             converted.append(part)
         else:
-            converted.append(to_unicode(part))
+            converted.append(_convert_bijoy_section(part))
     return prefix + "".join(converted)
 
 

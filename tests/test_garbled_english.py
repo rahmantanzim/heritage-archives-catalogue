@@ -17,6 +17,8 @@ from ha_catalogue.garbled_english import recover_english
         ("ঘবংিঢ়ধঢ়বৎ", "Newspaper"),
         # Digits were converted too.
         ("৩ৎফ অৎঃ ঊীযরনরঃরড়হ", "3rd Art Exhibition"),
+        # A doubled ু was "zz" (found by the evaluation)
+        ("গ.অ. জধুুধয়ঁব", "M.A. Razzaque"),
     ],
 )
 def test_recovers_english(garbled, english):
